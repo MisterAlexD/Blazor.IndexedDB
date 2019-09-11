@@ -1,4 +1,5 @@
-﻿@using System.ComponentModel
+﻿
+@using System.ComponentModel
 @using Blazor.IndexedDB.Test.Models
 @using TG.Blazor.IndexedDB
 @using Microsoft.AspNetCore.Components
@@ -8,22 +9,22 @@
 @inject IndexedDBManager DbManager
 @inject DbStore DbStore
 
-    <div>
-        <p><b>status:</b> @Message</p>
-        <p><b>Db version:</b> @DbManager.CurrentVersion</p>
-        <p><b>stores:</b> @string.Join(", ", DbManager.Stores.Select(s => s.Name))</p>
-    </div>
+<div>
+    <p><b>status:</b> @Message</p>
+    <p><b>Db version:</b> @DbManager.CurrentVersion</p>
+    <p><b>stores:</b> @string.Join(", ", DbManager.Stores.Select(s => s.Name))</p>
+</div>
 <div class="d-flex flex-row align-items-start">
     <div class="d-flex flex-column">
         <button class="btn btn-outline-primary m-4" @onclick="@OpenDatabase">Open Database</button>
         <button class="btn btn-outline-primary m-4" @onclick="@GetRecords">Get Records</button>
         <button class="btn btn-outline-primary m-4" @onclick="@ClearStore">Clear Store</button>
         <button class="btn btn-outline-primary m-4" @onclick="@DeleteDatabase">Delete Database</button>
-        <div class="m-4 d-flex flex-row" >
+        <div class="m-4 d-flex flex-row">
             <button class="btn btn-outline-primary mr-2" @onclick="@AddNewStore">Add New Store</button>
             <input type="text" placeholder="Enter new store name" @bind="@NewStoreName" />
         </div>
-      
+
     </div>
 
     <div class="d-flex, flex-column">
@@ -34,7 +35,7 @@
             <div class="m-4">
                 <label>Last Name</label> <input id="lastName" type="text" @bind="@CurrentPerson.LastName" />
             </div>
-           
+
             <button class="btn btn-primary m-4" @onclick="@AddRecord">Add/Update Record</button>
         </div>
     </div>
@@ -61,126 +62,123 @@
 
 @code
 {
-string Message { get; set; }
+    public string Message { get; set; }
 
-Person CurrentPerson { get; set; } = new Person();
+    public Person CurrentPerson { get; set; } = new Person();
 
-List<Person> People { get; set; } = new List<Person>();
+    public List<Person> People { get; set; } = new List<Person>();
 
-string NewStoreName { get; set; } = "";
+    public string NewStoreName { get; set; } = "";
 
-
-protected override void OnInitialized()
-{
-    DbManager.ActionCompleted += OnIndexedDbNotification;
-
-}
-
-public void Dispose()
-{
-    DbManager.ActionCompleted -= OnIndexedDbNotification;
-}
-
-protected async void OpenDatabase()
-{
-    await DbManager.OpenDb();
-    await DbManager.GetCurrentDbState();
-    StateHasChanged();
-}
-
-
-
-protected List<string> GetIndexes()
-{
-    return DbManager.Stores[0].Indexes.Select(idx => idx.Name).ToList();
-}
-
-protected async void GetRecords()
-{
-    var results = await DbManager.GetRecords<Person>(DbManager.Stores[0].Name);
-    if (results.Any())
+    
+    protected override void OnInitialized()
     {
-        People = results;
+        //this.DbManager.ActionCompleted += OnIndexedDbNotification();        
     }
-    else
+
+    public void Dispose()
     {
+        DbManager.ActionCompleted -= OnIndexedDbNotification;
+    }
+
+    protected async void OpenDatabase()
+    {
+        await DbManager.OpenDb();
+        await DbManager.GetCurrentDbState();
+        StateHasChanged();
+    }
+
+    public List<string> GetIndexes()
+    {
+        return DbManager.Stores[0].Indexes.Select(idx => idx.Name).ToList();
+    }
+
+    public async void GetRecords()
+    {
+        var results = await DbManager.GetRecords<Person>(DbManager.Stores[0].Name);
+        if (results.Any())
+        {
+            People = results;
+        }
+        else
+        {
+            People.Clear();
+            Message = "No Records found";
+        }
+
+        StateHasChanged();
+    }
+
+    public async Task EditPerson(long id)
+    {
+        try
+        {
+            CurrentPerson = await DbManager.GetRecordById<long, Person>(DbManager.Stores[0].Name, id);
+        }
+        catch (Exception e)
+        {
+
+            Console.WriteLine(e.Message);
+        }
+    }
+
+    public async void AddRecord()
+    {
+        var newRecord = new StoreRecord<Person>
+        {
+            Storename = DbManager.Stores[0].Name,
+            Data = CurrentPerson
+        };
+
+
+        if (newRecord.Data.Id.HasValue)
+        {
+            await DbManager.UpdateRecord(newRecord);
+        }
+        else
+        {
+            await DbManager.AddRecord(newRecord);
+        }
+
+        CurrentPerson = new Person();
+
+        GetRecords();
+    }
+
+    public async Task DeleteRecord(long? id)
+    {
+        await DbManager.DeleteRecord(DbManager.Stores[0].Name, id);
+
+        GetRecords();
+    }
+
+    public async Task AddNewStore()
+    {
+        var newStoreSchema = new StoreSchema
+        {
+            Name = NewStoreName,
+            PrimaryKey = new IndexSpec { Name = "id", KeyPath = "id", Auto = true },
+        };
+
+        await DbManager.AddNewStore(newStoreSchema);
+        await DbManager.GetCurrentDbState();
+    }
+
+    public async Task ClearStore()
+    {
+        await DbManager.ClearStore(DbManager.Stores[0].Name);
+        GetRecords();
+    }
+
+    public async Task DeleteDatabase()
+    {
+        await DbManager.DeleteDb(DbStore.DbName);
         People.Clear();
-        Message = "No Records found";
     }
 
-    StateHasChanged();
-}
-
-protected async Task EditPerson(long id)
-{
-    try
+    public void OnIndexedDbNotification(object sender, IndexedDBNotificationArgs args)
     {
-        CurrentPerson = await DbManager.GetRecordById<long, Person>(DbManager.Stores[0].Name, id);
+        Message = args.Message;
     }
-    catch (Exception e)
-    {
-
-        Console.WriteLine(e.Message);
-    }
-}
-
-protected async void AddRecord()
-{
-    var newRecord = new StoreRecord<Person>
-    {
-        Storename = DbManager.Stores[0].Name,
-        Data = CurrentPerson
-    };
-
-
-    if (newRecord.Data.Id.HasValue)
-    {
-        await DbManager.UpdateRecord(newRecord);
-    }
-    else
-    {
-        await DbManager.AddRecord(newRecord);
-    }
-
-    CurrentPerson = new Person();
-
-    GetRecords();
-}
-
-protected async Task DeleteRecord(long? id)
-{
-    await DbManager.DeleteRecord(DbManager.Stores[0].Name, id);
-
-    GetRecords();
-}
-
-protected async Task AddNewStore()
-{
-    var newStoreSchema = new StoreSchema
-    {
-        Name = NewStoreName,
-        PrimaryKey = new IndexSpec { Name = "id", KeyPath = "id", Auto = true },
-    };
-
-    await DbManager.AddNewStore(newStoreSchema);
-    await DbManager.GetCurrentDbState();
-}
-
-protected async Task ClearStore()
-{
-    await DbManager.ClearStore(DbManager.Stores[0].Name);
-    GetRecords();
-}
-
-protected async Task DeleteDatabase()
-{
-    await DbManager.DeleteDb(DbStore.DbName);
-    People.Clear();
-}
-
-private void OnIndexedDbNotification(object sender, IndexedDBNotificationArgs args)
-{
-    Message = args.Message;
-}
 
 }

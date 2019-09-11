@@ -40,7 +40,7 @@ namespace TG.Blazor.IndexedDB
         /// <returns></returns>
         public async Task OpenDb()
         {
-            var result = await CallJavascript<string>(DbFunctions.OpenDb, _dbStore, new { Instance = DotNetObjectRef.Create(this), MethodName= "Callback"});
+            var result = await CallJavascript<string>(DbFunctions.OpenDb, _dbStore, new { Instance = DotNetObjectReference.Create(this), MethodName= "Callback"});
             _isOpen = true;
 
 
@@ -108,7 +108,7 @@ namespace TG.Blazor.IndexedDB
             _dbStore.Stores.Add(storeSchema);
             _dbStore.Version += 1;
 
-            var result = await CallJavascript<string>(DbFunctions.OpenDb, _dbStore, new { Instance = DotNetObjectRef.Create(this), MethodName = "Callback" });
+            var result = await CallJavascript<string>(DbFunctions.OpenDb, _dbStore, new { Instance = DotNetObjectReference.Create(this), MethodName = "Callback" });
             _isOpen = true;
 
             RaiseNotification(IndexDBActionOutCome.Successful, $"new store {storeSchema.Name} added");
